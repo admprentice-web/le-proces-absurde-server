@@ -11,11 +11,10 @@ const server = http.createServer(app);
 // Configuration robuste de Socket.io
 const io = new Server(server, {
   cors: {
-    origin: "*", // Autorise tout le monde (essentiel pour Render + tests locaux)
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: "*", 
+    methods: ["GET", "POST"]
   },
-  allowEIO3: true // Compatibilité accrue avec les anciens clients
+  path: '/socket.io/' // Force le chemin par défaut
 });
 
 const PORT = process.env.PORT || 3000;
