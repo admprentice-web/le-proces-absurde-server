@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Procès Absurde</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="app"></div>
+    
+    <script>
+        const SERVER_URL = 'http://localhost:3000';
+        let socket = null;
+        let currentScreen = 'start';
+        let isHost = false;
+        let roomCode = '';
+        let playerName = '';
+        let playerId = null;
+        
+        // Initialiser l'app
+        function init() {
+            render();
+        }
+        
+        function render() {
+            const screens = {
+                'start': renderStart,
+                'host-lobby': renderHostLobby,
+                'client-join': renderClientJoin
+            };
+            
+            document.getElementById('app').innerHTML = screens[currentScreen]();
+        }
+        
+        function renderStart() {
+            return `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(to bottom right, rgb(88, 28, 135), rgb(219, 39, 119)); padding: 20px;">
+                    <h1 style="font-size: 4rem; font-weight: bold; color: white; text-align: center; margin-bottom: 2rem;">⚖️ Le Procès Absurde</h1>
+                    <button onclick="startHost()" style="width: 300px; padding: 20px; margin: 10px; background: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); color: white; border: none; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        👥 Créer une Room (Host)
+                    </button>
+                    <button onclick="startClient()" style="width: 300px; padding: 20px; margin: 10px; background: linear-gradient(to right, rgb(236, 72, 153), rgb(168, 85, 247)); color: white; border: none; border-radius: 50px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                        📱 Rejoindre (Client)
+                    </button>
+                </div>
+            `;
+        }
+        
+        function renderHostLobby() {
+            return `
+                <div style="min-height: 100vh; background: linear-gradient(to bottom right, rgb(88, 28, 135), rgb(219, 39, 119)); padding: 40px;">
+                    <div style="max-width: 800px; margin: 0 auto; text-align: center;">
+                        <h2 style="font-size: 2.5rem; font-weight: bold; color: white; margin-bottom: 20px;">CODE DE LA SALLE</h2>
+                        <div style="font-size: 6rem; font-weight: bold; color: #fbbf24; background: rgba(0,0,0,0.5); border-radius: 30px; padding: 40px; border: 4px dashed #fbbf24; display: inline-block;">
+                            ${roomCode}
+                        </div>
+                        <p style="color: white; font-size: 1.5rem; margin-top: 30px;">✅ Room créée ! En attente de joueurs...</p>
+                        <p style="color: rgba(255,255,255,0.7); margin-top: 10px;">Les joueurs peuvent rejoindre avec ce code sur leur mobile</p>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderClientJoin() {
+            return `
+                <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(to bottom right, rgb(88, 28, 135), rgb(219, 39, 119)); padding: 20px;">
+                    <div style="background: rgba(0,0,0,0.5); border-radius: 30px; padding: 40px; width: 100%; max-width: 500px; border: 2px solid rgb(168, 85, 247);">
+                        <h1 style="font-size: 2.5rem; font-weight: bold; color: white; text-align: center; margin-bottom: 30px;">Rejoindre</h1>
+                        <input id="joinCode" type="text" placeholder="Code (4 caractères)" maxlength="4" style="width: 100%; padding: 20px; margin-bottom: 20px; background: rgba(88, 28, 135, 0.5); border: 2px solid rgb(6, 182, 212); border-radius: 15px; color: white; font-size: 1.5rem; text-align: center; font-weight: bold;" />
+                        <input id="joinName" type="text" placeholder="Votre Pseudo" maxlength="12" style="width: 100%; padding: 20px; margin-bottom: 30px; background: rgba(88, 28, 135, 0.5); border: 2px solid rgb(236, 72, 153); border-radius: 15px; color: white; font-size: 1.2rem; text-align: center;" />
+                        <button onclick="joinRoom()" style="width: 100%; padding: 20px; background: linear-gradient(to right, rgb(236, 72, 153), rgb(168, 85, 247)); color: white; border: none; border-radius: 50px; font-size: 1.5rem; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                            GO !
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function connectSocket() {
+            if (socket) return;
+            
+            socket = io(SERVER_URL, {
+                transports: ['websocket', 'polling'],
+                reconnection: true
+            });
+            
+            socket.on('connect', () => {
+                console.log('✅ Connecté au serveur !', socket.id);
+            });
+            
+            socket.on('roomCreated', (data) => {
+                console.log('🎮 Room créée:', data.roomCode);
+                roomCode = data.roomCode;
+                currentScreen = 'host-lobby';
+                render();
+            });
+            
+            socket.on('joinedRoom', (data) => {
+                console.log('✅ Room rejointe:', data.roomCode);
+                playerId = data.playerId;
+                roomCode = data.roomCode;
+                alert('✅ Connecté à la room ' + data.roomCode + ' !');
+            });
+            
+            socket.on('error', (err) => {
+                alert('❌ Erreur: ' + err.message);
+            });
+        }
+        
+        function startHost() {
+            console.log('🎮 Démarrage en mode Host...');
+            isHost = true;
+            connectSocket();
+            setTimeout(() => {
+                socket.emit('createRoom');
+            }, 500);
+        }
+        
+        function startClient() {
+            console.log('📱 Démarrage en mode Client...');
+            isHost = false;
+            currentScreen = 'client-join';
+            render();
+        }
+        
+        function joinRoom() {
+            const code = document.getElementById('joinCode').value.toUpperCase();
+            const name = document.getElementById('joinName').value;
+            
+            if (code.length !== 4 || !name) {
+                alert('❌ Code (4 caractères) et Pseudo requis !');
+                return;
+            }
+            
+            playerName = name;
+            connectSocket();
+            setTimeout(() => {
+                socket.emit('joinRoom', { roomCode: code, playerName: name });
+            }, 500);
+        }
+        
+        // Démarrer l'app
+        init();
+    </script>
+</body>
+</html>
