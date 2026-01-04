@@ -8,12 +8,12 @@ const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
-const io = socketIo(server, {
+const io = require('socket.io')(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  },
-  transports: ['websocket', 'polling']
+    origin: "*", // Autorise TOUTES les sources (indispensable pour les tests)
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 
 const PORT = process.env.PORT || 3000;
