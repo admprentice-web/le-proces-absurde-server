@@ -1,23 +1,24 @@
-// server.js - Backend Socket.io pour "Le Procès Absurde"
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io'); // Utilisation de la classe Server directement
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
-const io = require('socket.io')(server, {
+
+// Configuration robuste de Socket.io
+const io = new Server(server, {
   cors: {
-    origin: "*", // Autorise TOUTES les sources (indispensable pour les tests)
+    origin: "*", // Autorise tout le monde (essentiel pour Render + tests locaux)
     methods: ["GET", "POST"],
     credentials: true
-  }
+  },
+  allowEIO3: true // Compatibilité accrue avec les anciens clients
 });
 
 const PORT = process.env.PORT || 3000;
-
 const rooms = {};
 
 function generateRoomCode() {
